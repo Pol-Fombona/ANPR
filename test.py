@@ -199,6 +199,19 @@ def read_number_plate(image):
     return text
 
 
+def elimina_e(img, thr):
+  mean_columns = img.mean(0)
+
+  for ind, val in enumerate(mean_columns):
+    if val > thr:
+      break
+    
+  img_ret = np.delete(img, [i for i in range(ind)], axis=1)
+
+  return img_ret
+
+
+
 if __name__ == '__main__':
 
     files = [DIR_IMAGES + file for file in listdir(DIR_IMAGES)]
