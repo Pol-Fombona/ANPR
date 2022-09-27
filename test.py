@@ -1,3 +1,4 @@
+from distutils.log import debug
 from turtle import left
 import cv2
 import matplotlib.pyplot as plt
@@ -8,9 +9,6 @@ import re
 
 from os import listdir
 
-
-DIR_IMAGES = 'images/'
-DEBUG = True
 
 
 def read_image(filename):
@@ -41,7 +39,7 @@ def get_location(image):
             x, y = right_y - left_y, bottom_x - top_x
             ratio = y / x
 
-            print(f'\nRatio: {ratio} ({y}/{x})\n')
+            if (DEBUG): print(f'\nRatio: {ratio} ({y}/{x})\n')
 
             if 4 > ratio > 1.8:
                 location = approx
@@ -49,162 +47,98 @@ def get_location(image):
 
     return location
 
+def show_image(img, title = ''):
 
-def preprocess(image, edge_args):
-    
-    alpha, beta = 1.5, 0
-    contrast_img = cv2.convertScaleAbs(image, alpha=alpha, beta=beta)
-    edged = cv2.Canny(image, edge_args[0], edge_args[1])
-    cv2.imshow('pepe', edged)
+    #img = ResizeWithAspectRatio(img, 720)
+    cv2.imshow(title, img)
     cv2.waitKey(0)
-    location = get_location(edged.copy())
-    
-    if location is None:
-        print('Location not found!')
-        return 
-
-    mask = np.zeros(image.shape, np.uint8)
-    new_image = cv2.drawContours(mask, [location], 0,255, -1)
-    new_image = cv2.bitwise_and(image, image, mask=mask)
-
-    cv2.imshow(new_image)
-
-    (x, y) = np.where(mask==255)
-    (x1, y1) = (np.min(x), np.min(y))
-    (x2, y2) = (np.max(x), np.max(y))
-    cropped_image = new_image[x1:x2+1, y1:y2+1]
-
-    cv2.imshow('final image', cropped_image)
-    return read_number_plate(cropped_image)
-
-
-def metode_A(image):
-
-    alpha, beta = 1.5, 0
-    contrast_img = cv2.convertScaleAbs(image, alpha=alpha, beta=beta)
-    blurred = cv2.GaussianBlur(contrast_img, (3,3), 0)
-    cv2.imshow('blurred', blurred)
-    cv2.waitKey(0)
-
-    bin_img = cv2.adaptiveThreshold(blurred, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C,\
-            cv2.THRESH_BINARY_INV, 11, 10)
-    cv2.imshow('binary', bin_img)
-    cv2.waitKey(0)
-
-    edged = cv2.Canny(bin_img, 30, 200)
-    cv2.imshow('edged', edged)
-    cv2.waitKey(0)
-
-    img = cv2.morphologyEx(edged, cv2.MORPH_CLOSE, (3,3), iterations=5)
-    cv2.imshow('edged + morph', img)
-    cv2.waitKey(0)
-
-    location = get_location(img.copy())
-    
-    if location is None:
-        print('Location not found!')
-        return 
-
-    mask = np.zeros(image.shape, np.uint8)
-    new_image = cv2.drawContours(mask, [location], 0,255, -1)
-    new_image = cv2.bitwise_and(image, image, mask=mask)
-
-    cv2.imshow('pepe', new_image)
-    cv2.waitKey(0)
-
-    (x, y) = np.where(mask==255)
-    (x1, y1) = (np.min(x), np.min(y))
-    (x2, y2) = (np.max(x), np.max(y))
-    cropped_image = new_image[x1:x2+1, y1:y2+1]
-
-    cv2.imshow('final image', cropped_image)
-    cv2.waitKey(0)
-
-    return cropped_image
-    
-
+    cv2.destroyAllWindows()
 
 def metode_B(image):
-    img = cv2.GaussianBlur(image, (7,7), 0)
-    cv2.imshow('Blur', img)
-    cv2.waitKey(0)
+
+    history = []
+
+    img = cv2.GaussianBlur(image, (7,7), 0) 
+    # Compte que aqui li apliquem el blur pero despres al black hat usem la imatge de
+    # parametre i no la del gaussian
+    history.append((img, "Gaussian Blur"))
 
     kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (3,3))
-    img = cv2.morphologyEx(image, cv2.MORPH_BLACKHAT, kernel, iterations=2)
-    cv2.imshow('Black hat', img)
-    cv2.waitKey(0)
+    blackHat = cv2.morphologyEx(image, cv2.MORPH_BLACKHAT, kernel, iterations=2)
+    history.append((blackHat, "Black Hat"))
 
-    img = cv2.threshold(img, img.max()//2, 255, cv2.THRESH_BINARY)[1]
-    cv2.imshow('THS', img)
-    cv2.waitKey(0)
+    treshold = cv2.threshold(blackHat, blackHat.max()//2, 255, cv2.THRESH_BINARY)[1]
+    history.append((treshold, "Treshold"))
   
     horizontal_kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (3,1))
-    img = cv2.dilate(img, horizontal_kernel, iterations=5)
-    cv2.imshow('dilate', img)
-    cv2.waitKey(0)
+    dilate = cv2.dilate(treshold, horizontal_kernel, iterations=5)
+    history.append((dilate, "Dilate"))
 
-    img = cv2.morphologyEx(img, cv2.MORPH_OPEN, kernel, iterations=1)
-    cv2.imshow('Open', img)
-    cv2.waitKey(0)
+    opening = cv2.morphologyEx(dilate, cv2.MORPH_OPEN, kernel, iterations=1)
+    history.append((opening, "Opening"))
 
-    img = cv2.GaussianBlur(img, (3,3), 0)
-    img = cv2.threshold(img, img.max()//2, 255, cv2.THRESH_BINARY)[1]
+    gaussianBlur = cv2.GaussianBlur(opening, (3,3), 0)
+    history.append((gaussianBlur, "Second Gaussian"))
+
+    treshold2 = cv2.threshold(gaussianBlur, gaussianBlur.max()//2, 255, cv2.THRESH_BINARY)[1]
+    history.append((treshold2, "Second Treshold"))
+
+
 
     square_kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (3,3))
-    img = cv2.morphologyEx(img, cv2.MORPH_CLOSE, square_kernel, iterations=5)
-    cv2.imshow('Close', img)
-    cv2.waitKey(0)
+    closing = cv2.morphologyEx(treshold2, cv2.MORPH_CLOSE, square_kernel, iterations=5)
+    history.append((closing, "Closing"))
+
+    
 
     # Filter using contour area and remove small noise
-    cnts = cv2.findContours(img, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
+    cnts = cv2.findContours(closing, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
     cnts = cnts[0] if len(cnts) == 2 else cnts[1]
     for c in cnts:
         area = cv2.contourArea(c)
         if area < 1000:
-            cv2.drawContours(img, [c], -1, (0,0,0), -1)
+            cv2.drawContours(closing, [c], -1, (0,0,0), -1)
 
-    cv2.imshow('cnt', img)
-    cv2.waitKey(0)
+    history.append((closing, "Contours"))
 
-    location = get_location(img.copy())
+    location = get_location(closing.copy())
     
     if location is None:
-        print('Location not found!')
+        if (DEBUG): print('Location not found!')
         return 
 
     mask = np.zeros(image.shape, np.uint8)
     new_image = cv2.drawContours(mask, [location], 0,255, -1)
     new_image = cv2.bitwise_and(image, image, mask=mask)
 
-    cv2.imshow('pepe', new_image)
-    cv2.waitKey(0)
-    
+
+    (x, y) = np.where(mask==255)
+    (x1, y1) = (np.min(x), np.min(y))
+    (x2, y2) = (np.max(x), np.max(y))
+    cropped_image = new_image[x1:x2+1, y1:y2+1]
+
     warped = homography(new_image,location)
-    cv2.imshow("warped",warped)
-    cv2.waitKey(0)
+    history.append((warped, "Warped"))
+
+    if (DEBUG):
+        for item in history:
+            show_image(item[0], item[1])
+
     return warped
 
+def img_to_str(img):
+    #show_image(img)
+    custom_config = r'-c tessedit_char_whitelist=0123456789BCDFGHJKLMNPRSTVWXYZ --psm 11'
+    ## l'11 es el que funciona millor pero hauriem d'usar el 7
+    ## El 10 si tenim els caracters separats
 
+    text = pytesseract.image_to_string(img, config=custom_config)
 
-def read_number_plate(image):
-    # Read the number plate
-    text = pytesseract.image_to_string(image, config='--psm 11')
-    text = re.sub('[^0-9a-zA-Z]+', '*', text)
-    print("Detected license plate Number is:", text)
-    print(repr(text))
+    text = text.replace("\n", "").replace(" ", "")
+
+    #print(pytesseract.image_to_boxes(img))
+
     return text
-
-
-def elimina_e(img, thr):
-  mean_columns = img.mean(0)
-
-  for ind, val in enumerate(mean_columns):
-    if val > thr:
-      break
-    
-  img_ret = np.delete(img, [i for i in range(ind)], axis=1)
-
-  return img_ret
 
 def order_points(pts):
 	rect = np.zeros((4, 2), dtype = "float32")
@@ -238,32 +172,46 @@ def homography(gray_img,location):
 	warped = cv2.warpPerspective(gray_img, M, (maxWidth, maxHeight))
 	return warped
 
+
 if __name__ == '__main__':
 
-    files = [DIR_IMAGES + file for file in listdir(DIR_IMAGES)]
+    pytesseract.pytesseract.tesseract_cmd = r'C:\Program Files\Tesseract-OCR\tesseract.exe'
 
-    num_img = np.random.randint(0, len(files))
-    #num_img = 79
-    img = read_image(files[num_img])
-
-    y, x = img.shape
-
-    print(f'Imatge num: {num_img}')
-
-    # Resize Image
-    r = 720 / x
-    dim = (720, int(y * r))
-    img = cv2.resize(img, dim)
-
-    y, x = img.shape
-    img_cropped = img[y//4:y, 0:x]
-
-    if DEBUG:
-        cv2.imshow(files[num_img], img)
-        cv2.imshow('img_cropped', img_cropped)
-        cv2.waitKey(0)
     
-    metode_B(img_cropped)
+    DIR_IMAGES = r"C:\Users\Admin\Desktop\4t\PSIV\img\\"
+    DEBUG = False
+    total = 0
 
-    real_NP = files[num_img]
-    #print(f'Real NP: {real_NP} \nNP founded: {number_plate}')
+    files = [DIR_IMAGES + file for file in listdir(DIR_IMAGES)]
+    files = files[:10]
+    
+    for file in files:
+
+        img = read_image(file)
+
+        y, x = img.shape
+
+        # Resize Image
+        r = 720 / x
+        dim = (720, int(y * r))
+        img = cv2.resize(img, dim)
+
+        y, x = img.shape
+        img_cropped = img[y//4:y, 0:x]
+
+        plateLocation = metode_B(img_cropped)
+
+        if (plateLocation is None):
+            print("File:", file[file.rindex('\\') + 1 :], "- License Plate not found")          
+
+        else:
+            # TODO check if the text returned is correct
+            licensePlateNumber = img_to_str(plateLocation)
+            print("File:", file[file.rindex('\\') + 1 :] + " - License Plate Number identified: ", 
+                licensePlateNumber)
+            total += 1
+
+    correct_percentage = round((total/len(files))*100, 2)
+    print("Total Images Processed:", len(files), "- Correctly Identified:", total, 
+        "(" + str(correct_percentage) + "%)")
+    
