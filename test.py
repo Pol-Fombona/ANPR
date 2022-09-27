@@ -19,39 +19,31 @@ def read_image(filename):
 
 
 def get_location(image):
-    keypoints = cv2.findContours(image, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
+    keypoints = cv2.findContours(image, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
     contours = imutils.grab_contours(keypoints)
     num_contours = 10 if len(contours) > 10 else len(contours)
     contours = sorted(contours, key=cv2.contourArea, reverse=True)[:num_contours]
 
     location = None
     for contour in contours:
-        approx = cv2.approxPolyDP(contour, 35, True)
-
+        #approx = cv2.approxPolyDP(contour, 35, True)
+        rect = cv2.minAreaRect(contour)
+        approx = cv2.boxPoints(rect)
+        approx = np.int0(approx)
         if len(approx) == 4:
-            
             points = np.squeeze(approx)
-            
+
             X, Y = points[:,0], points[:,1]
 
             left_y, right_y = np.min(Y), np.max(Y)
             top_x, bottom_x = np.min(X), np.max(X)
-            
+
             x, y = right_y - left_y, bottom_x - top_x
             ratio = y / x
+
             print(f'\nRatio: {ratio} ({y}/{x})\n')
 
-            color = (255, 0, 0)
-            thickness = 4
-            #nimage = cv2.rectangle(image, points[0], points[-1], color, thickness)
-            pts = points.reshape((-1, 1, 2))
-            nimage = cv2.polylines(image, [pts], True, color, thickness)      
-
-            # Displaying the image 
-            cv2.imshow('pepe', nimage)
-            cv2.waitKey(0)
-
-            if ratio > 1.5:
+            if 4 > ratio > 1.8:
                 location = approx
                 break
 
@@ -133,13 +125,45 @@ def metode_A(image):
 
 
 def metode_B(image):
-    kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (5,5))
+    img = cv2.GaussianBlur(image, (7,7), 0)
+    cv2.imshow('Blur', img)
+    cv2.waitKey(0)
 
+    kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (3,3))
     img = cv2.morphologyEx(image, cv2.MORPH_BLACKHAT, kernel, iterations=2)
     cv2.imshow('Black hat', img)
     cv2.waitKey(0)
-    img = cv2.morphologyEx(img, cv2.MORPH_CLOSE, kernel, iterations=7)
-    cv2.imshow('closing', img)
+
+    img = cv2.threshold(img, img.max()//2, 255, cv2.THRESH_BINARY)[1]
+    cv2.imshow('THS', img)
+    cv2.waitKey(0)
+  
+    horizontal_kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (3,1))
+    img = cv2.dilate(img, horizontal_kernel, iterations=5)
+    cv2.imshow('dilate', img)
+    cv2.waitKey(0)
+
+    img = cv2.morphologyEx(img, cv2.MORPH_OPEN, kernel, iterations=1)
+    cv2.imshow('Open', img)
+    cv2.waitKey(0)
+
+    img = cv2.GaussianBlur(img, (3,3), 0)
+    img = cv2.threshold(img, img.max()//2, 255, cv2.THRESH_BINARY)[1]
+
+    square_kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (3,3))
+    img = cv2.morphologyEx(img, cv2.MORPH_CLOSE, square_kernel, iterations=5)
+    cv2.imshow('Close', img)
+    cv2.waitKey(0)
+
+    # Filter using contour area and remove small noise
+    cnts = cv2.findContours(img, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
+    cnts = cnts[0] if len(cnts) == 2 else cnts[1]
+    for c in cnts:
+        area = cv2.contourArea(c)
+        if area < 1000:
+            cv2.drawContours(img, [c], -1, (0,0,0), -1)
+
+    cv2.imshow('cnt', img)
     cv2.waitKey(0)
 
     location = get_location(img.copy())
@@ -179,8 +203,8 @@ if __name__ == '__main__':
 
     files = [DIR_IMAGES + file for file in listdir(DIR_IMAGES)]
 
-    #num_img = np.random.randint(0, len(files))
-    num_img = 20
+    num_img = np.random.randint(0, len(files))
+    #num_img = 79
     img = read_image(files[num_img])
 
     y, x = img.shape
@@ -199,10 +223,8 @@ if __name__ == '__main__':
         cv2.imshow(files[num_img], img)
         cv2.imshow('img_cropped', img_cropped)
         cv2.waitKey(0)
-
-    #number_plate = preprocess(img_cropped, (30, 200))
     
     metode_B(img_cropped)
-    real_NP = files[num_img]
 
+    real_NP = files[num_img]
     #print(f'Real NP: {real_NP} \nNP founded: {number_plate}')
