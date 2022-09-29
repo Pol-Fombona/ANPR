@@ -1,4 +1,5 @@
 from distutils.log import debug
+from msilib.schema import Directory
 from turtle import left
 import cv2
 import matplotlib.pyplot as plt
@@ -6,6 +7,7 @@ import numpy as np
 import imutils
 import pytesseract
 import re
+import os
 
 from os import listdir
 
@@ -136,9 +138,26 @@ def img_to_str(img):
 
     text = text.replace("\n", "").replace(" ", "")
 
-    #print(pytesseract.image_to_boxes(img))
+    imgBoxes = getTextBoxes(img)
 
-    return text
+    return text, imgBoxes
+
+def getTextBoxes(img):
+
+    boxes = pytesseract.image_to_boxes(img)
+
+    height, width = img.shape
+
+    for box in boxes.splitlines():
+        box = box.split(' ')
+
+        x, y, w, h = int(box[1]), int(box[2]), int(box[3]), int(box[4])
+        cv2.rectangle(img, (x, height - y), (w, height - h), (50, 50, 255), 1)
+        cv2.putText(img, box[0], (x, height - y + 13), cv2.FONT_HERSHEY_SIMPLEX, 0.4, (50, 205, 50), 1)
+
+    return img
+
+
 
 def order_points(pts):
 	rect = np.zeros((4, 2), dtype = "float32")
@@ -177,13 +196,16 @@ if __name__ == '__main__':
 
     pytesseract.pytesseract.tesseract_cmd = r'C:\Program Files\Tesseract-OCR\tesseract.exe'
 
+    directory = os.getcwd()
     
-    DIR_IMAGES = r"C:\Users\Admin\Desktop\4t\PSIV\img\\"
+    DIR_IMAGES = directory + "\cropped_images\\"
+    DIR_RESULTS = directory + "\licensePlate\\"
+
     DEBUG = False
     total = 0
 
     files = [DIR_IMAGES + file for file in listdir(DIR_IMAGES)]
-    files = files[:10]
+    files = files[:20]
     
     for file in files:
 
@@ -197,21 +219,31 @@ if __name__ == '__main__':
         img = cv2.resize(img, dim)
 
         y, x = img.shape
-        img_cropped = img[y//4:y, 0:x]
-
+        #img_cropped = img[y//4:y, 0:x]
+        img_cropped = img
         plateLocation = metode_B(img_cropped)
+        file_name = file[file.rindex('\\') + 1 :]
+        filePlateTag = file_name[:file_name.rindex('.')]
 
         if (plateLocation is None):
-            print("File:", file[file.rindex('\\') + 1 :], "- License Plate not found")          
+            print("File:", file_name, "- License Plate not found")          
 
         else:
-            # TODO check if the text returned is correct
-            licensePlateNumber = img_to_str(plateLocation)
-            print("File:", file[file.rindex('\\') + 1 :] + " - License Plate Number identified: ", 
+            
+
+            licensePlateNumber, imgTextBoxes = img_to_str(plateLocation)
+
+            cv2.imwrite(DIR_RESULTS + file_name, imgTextBoxes)
+
+            
+            print("File:", file_name + " - License Plate Number identified: ", 
                 licensePlateNumber)
-            total += 1
+
+            if licensePlateNumber == filePlateTag: 
+                total += 1
 
     correct_percentage = round((total/len(files))*100, 2)
     print("Total Images Processed:", len(files), "- Correctly Identified:", total, 
         "(" + str(correct_percentage) + "%)")
+
     
