@@ -11,7 +11,7 @@ import re
 import os
 from imutils import contours
 from os import listdir
-#import easyocr
+import easyocr
 
 
 
@@ -97,6 +97,7 @@ def metode_B(image, og_img):
 
     # Filter using contour area and remove small noise
     cnts = cv2.findContours(closing, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
+    ## posar RETR_EXTERNAL en comptes de TREE? provar
     cnts = cnts[0] if len(cnts) == 2 else cnts[1]
     for c in cnts:
         area = cv2.contourArea(c)
@@ -134,57 +135,51 @@ def metode_B(image, og_img):
 
 
     
-    ## new
     ret2,th2 = cv2.threshold(warped, 0,255,cv2.THRESH_BINARY+cv2.THRESH_OTSU)
-    #show_image(th2)
-    ## potser un cop tenim la localització agafar la imatge original per tenir més qualitat de text?
     th2 = elimina_e(th2, 150)
-    #show_image(th2)
 
-
-    
-    #edged = cv2.Canny(th2, 30, 200)
-    th3 = th2.copy()
-    th3 = 255 - th3
-    cnts, _ = cv2.findContours(th3, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-    #cnts = cnts[0] if len(cnts) == 2 else cnts[1]
-   # cnts, _ = contours.sort_contours(cnts, method="left-to-right")
-
-    y, x = og_image.shape
-    min_area = 0.5 * y * 0.05 * x
-
-    ROI_number = 0
-    last_x_position = 0
-    for c in cnts:
-        temp1, temp2 = th3.shape
-        area = cv2.contourArea(c)
-        #if area < (temp1*0.5 * temp2*0.5):
-        if True:
-            x,y,w,h = cv2.boundingRect(c)
-            #if h > (0.5 * temp1): #and (x + w > (last_x_position)):
-            if True:
-
-                ROI = 255 - th2[y:y+h, x:x+w]
-                #cv2.imwrite('ROI_{}.png'.format(ROI_number), ROI)
-                cv2.rectangle(th3, (x, y), (x + w, y + h), (36,255,12), 1)
-                ROI_number += 1
-                last_x_position += x + w
-
-    #show_image(th3)
-    #reader = easyocr.Reader(['en'])
-    #result = reader.readtext(cropped_image)
-    #print(result)
-    #sort_contours(edged)
-    #show_image(edged)
-    
-
-    
+    findIndividualCharacters(th2, og_image)
+    ## No el faig servir de moment amb l'easyocr
 
     if (DEBUG):
         for item in history:
             show_image(item[0], item[1])
 
-    return th3
+
+    return th2
+    
+def findIndividualCharacters(img, og_image):
+
+    th3 = img.copy()
+    th3 = 255 - th3
+    cnts, _ = cv2.findContours(th3, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+    #cnts = cnts[0] if len(cnts) == 2 else cnts[1]
+    cnts, _ = contours.sort_contours(cnts, method="left-to-right")
+
+    y, x = og_image.shape
+    min_area = 0.5 * y * 0.05 * x
+
+    #ROI_number = 0
+    #last_x_position = 0
+    charactersImage = []
+    for c in cnts:
+        temp1, temp2 = th3.shape
+        area = cv2.contourArea(c)
+        if area < (temp1*0.3 * temp2*0.3):
+            x,y,w,h = cv2.boundingRect(c)
+            if h > (0.5 * temp1): #and (x + w > (last_x_position)):
+                charactersImage.append(th3[y-5:y+h+5, x-5:x+w+5])
+                #cv2.rectangle(th3, (x, y), (x + w, y + h), (255,0,0), 2)
+
+                #ROI = th3[y:y+h, x:x+w]
+                #cv2.imwrite('ROI_{}.png'.format(ROI_number), ROI)
+                #cv2.rectangle(th3, (x, y), (x + w, y + h), (255,0,0), 2)
+                #ROI_number += 1
+                #last_x_position += x + w
+   
+    
+
+    return charactersImage
 
 
 def img_to_str(img):
@@ -201,6 +196,18 @@ def img_to_str(img):
 
     #return text, imgBoxes
     return text
+
+def imgToString(img, reader):
+    result  = reader.readtext(img, detail=0, allowlist = '0123456789BCDFGHJKLMNPRSTVWXYZ')
+
+    if len(result) == 0:
+        return ''
+    
+    elif len(result) >= 1:
+        result = ''.join(result)
+
+    
+    return result.replace(" ", "")
 
 def getTextBoxes(img):
 
@@ -264,20 +271,21 @@ def elimina_e(img, thr):
 
 if __name__ == '__main__':
 
-    pytesseract.pytesseract.tesseract_cmd = r'C:\Program Files\Tesseract-OCR\tesseract.exe'
+    #pytesseract.pytesseract.tesseract_cmd = r'C:\Program Files\Tesseract-OCR\tesseract.exe'
 
     directory = os.getcwd()
     
-    DIR_IMAGES = directory + "\cropped_images\\"
-    DIR_RESULTS = directory + "\licensePlate\\"
+    DIR_IMAGES = directory + "\\cropped_images\\"
+    DIR_CORRECT_RESULTS = directory + "\licensePlate\correct\\"
+    DIR_INCORRECT_RESULTS = directory + "\licensePlate\incorrect\\"
 
-    
+    reader = easyocr.Reader(['en'])
 
     DEBUG = False
     total = 0
 
     files = [DIR_IMAGES + file for file in listdir(DIR_IMAGES)]
-    files = files[:]
+    #files = files[:]
     
     for file in files:
 
@@ -302,23 +310,35 @@ if __name__ == '__main__':
             print("File:", file_name, "- License Plate not found")          
 
         else:
-            cv2.imwrite(DIR_RESULTS + file_name, plateLocation)
-            licensePlateNumber = img_to_str(plateLocation)
-            print("File:", file_name + " - License Plate Number identified: ", 
-                licensePlateNumber)
+            
 
-            '''
-            licensePlateNumber, imgTextBoxes = img_to_str(plateLocation)
+            licensePlateNumber = imgToString(plateLocation, reader)
 
-            cv2.imwrite(DIR_RESULTS + file_name, imgTextBoxes)
+            #print("File:", file_name + " - License Plate Number identified:", 
+            #                licensePlateNumber)
+            if licensePlateNumber == filePlateTag:
+                cv2.imwrite(DIR_CORRECT_RESULTS + file_name, plateLocation) 
+                total += 1
+
+            else:
+                cv2.imwrite(DIR_INCORRECT_RESULTS + file_name, plateLocation) 
+                print("File:", file_name + " - License Plate Number identified:", 
+                                        licensePlateNumber)
+
+            #licensePlateNumber = img_to_str(plateLocation)
+            #print("File:", file_name + " - License Plate Number identified: ", 
+            #    licensePlateNumber)
 
             
-            print("File:", file_name + " - License Plate Number identified: ", 
-                licensePlateNumber)
+            #for charImage in charactersImage:
+                #show_image(charImage)
+                #text = imgToNumber(charImage, reader)
+                #print(text)
+                #licensePlateNumber += text
 
-            if licensePlateNumber == filePlateTag: 
-                total += 1
-            '''
+                
+
+    
 
     correct_percentage = round((total/len(files))*100, 2)
     print("Total Images Processed:", len(files), "- Correctly Identified:", total, 
