@@ -1,6 +1,7 @@
 from distutils.log import debug
 from msilib.schema import Directory
 from turtle import left
+from warnings import warn_explicit
 import cv2
 import matplotlib.pyplot as plt
 import numpy as np
@@ -8,8 +9,9 @@ import imutils
 import pytesseract
 import re
 import os
-
+from imutils import contours
 from os import listdir
+#import easyocr
 
 
 
@@ -43,7 +45,7 @@ def get_location(image):
 
             if (DEBUG): print(f'\nRatio: {ratio} ({y}/{x})\n')
 
-            if 4 > ratio > 1.8:
+            if 4.5 > ratio > 1.8:
                 location = approx
                 break
 
@@ -56,7 +58,7 @@ def show_image(img, title = ''):
     cv2.waitKey(0)
     cv2.destroyAllWindows()
 
-def metode_B(image):
+def metode_B(image, og_img):
 
     history = []
 
@@ -72,7 +74,7 @@ def metode_B(image):
     treshold = cv2.threshold(blackHat, blackHat.max()//2, 255, cv2.THRESH_BINARY)[1]
     history.append((treshold, "Treshold"))
   
-    horizontal_kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (3,1))
+    horizontal_kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (7,1))
     dilate = cv2.dilate(treshold, horizontal_kernel, iterations=5)
     history.append((dilate, "Dilate"))
 
@@ -109,9 +111,17 @@ def metode_B(image):
         if (DEBUG): print('Location not found!')
         return 
 
-    mask = np.zeros(image.shape, np.uint8)
-    new_image = cv2.drawContours(mask, [location], 0,255, -1)
-    new_image = cv2.bitwise_and(image, image, mask=mask)
+
+    #mask = np.zeros(image.shape, np.uint8)
+    #new_image = cv2.drawContours(mask, [location], 0,255, -1)
+    #new_image = cv2.bitwise_and(image, image, mask=mask)
+    mask = np.zeros(og_image.shape, np.uint8)
+    y, x = og_image.shape
+    for i in range(4):
+        location[i][0] = location[i][0] / (720/x)
+        location[i][1] = location[i][1] / (720/x)
+    new_image = cv2.drawContours(mask, [location], 0, 255, -1)
+    new_image = cv2.bitwise_and(og_image, og_image, mask=mask)
 
 
     (x, y) = np.where(mask==255)
@@ -122,11 +132,60 @@ def metode_B(image):
     warped = homography(new_image,location)
     history.append((warped, "Warped"))
 
+
+    
+    ## new
+    ret2,th2 = cv2.threshold(warped, 0,255,cv2.THRESH_BINARY+cv2.THRESH_OTSU)
+    #show_image(th2)
+    ## potser un cop tenim la localització agafar la imatge original per tenir més qualitat de text?
+    th2 = elimina_e(th2, 150)
+    #show_image(th2)
+
+
+    
+    #edged = cv2.Canny(th2, 30, 200)
+    th3 = th2.copy()
+    th3 = 255 - th3
+    cnts, _ = cv2.findContours(th3, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+    #cnts = cnts[0] if len(cnts) == 2 else cnts[1]
+   # cnts, _ = contours.sort_contours(cnts, method="left-to-right")
+
+    y, x = og_image.shape
+    min_area = 0.5 * y * 0.05 * x
+
+    ROI_number = 0
+    last_x_position = 0
+    for c in cnts:
+        temp1, temp2 = th3.shape
+        area = cv2.contourArea(c)
+        #if area < (temp1*0.5 * temp2*0.5):
+        if True:
+            x,y,w,h = cv2.boundingRect(c)
+            #if h > (0.5 * temp1): #and (x + w > (last_x_position)):
+            if True:
+
+                ROI = 255 - th2[y:y+h, x:x+w]
+                #cv2.imwrite('ROI_{}.png'.format(ROI_number), ROI)
+                cv2.rectangle(th3, (x, y), (x + w, y + h), (36,255,12), 1)
+                ROI_number += 1
+                last_x_position += x + w
+
+    #show_image(th3)
+    #reader = easyocr.Reader(['en'])
+    #result = reader.readtext(cropped_image)
+    #print(result)
+    #sort_contours(edged)
+    #show_image(edged)
+    
+
+    
+
     if (DEBUG):
         for item in history:
             show_image(item[0], item[1])
 
-    return warped
+    return th3
+
 
 def img_to_str(img):
     #show_image(img)
@@ -138,22 +197,22 @@ def img_to_str(img):
 
     text = text.replace("\n", "").replace(" ", "")
 
-    imgBoxes = getTextBoxes(img)
+    #imgBoxes = getTextBoxes(img)
 
-    return text, imgBoxes
+    #return text, imgBoxes
+    return text
 
 def getTextBoxes(img):
 
     boxes = pytesseract.image_to_boxes(img)
 
     height, width = img.shape
-
     for box in boxes.splitlines():
         box = box.split(' ')
 
         x, y, w, h = int(box[1]), int(box[2]), int(box[3]), int(box[4])
         cv2.rectangle(img, (x, height - y), (w, height - h), (50, 50, 255), 1)
-        cv2.putText(img, box[0], (x, height - y + 13), cv2.FONT_HERSHEY_SIMPLEX, 0.4, (50, 205, 50), 1)
+        #cv2.putText(img, box[0], (x, height - y + 13), cv2.FONT_HERSHEY_SIMPLEX, 0.4, (50, 205, 50), 1)
 
     return img
 
@@ -191,6 +250,17 @@ def homography(gray_img,location):
 	warped = cv2.warpPerspective(gray_img, M, (maxWidth, maxHeight))
 	return warped
 
+def elimina_e(img, thr):
+  mean_columns = img.mean(0)
+
+  for ind, val in enumerate(mean_columns):
+    if val > thr:
+      break
+
+  img_ret = np.delete(img, [i for i in range(ind)], axis=1)
+
+  return img_ret
+
 
 if __name__ == '__main__':
 
@@ -201,15 +271,18 @@ if __name__ == '__main__':
     DIR_IMAGES = directory + "\cropped_images\\"
     DIR_RESULTS = directory + "\licensePlate\\"
 
+    
+
     DEBUG = False
     total = 0
 
     files = [DIR_IMAGES + file for file in listdir(DIR_IMAGES)]
-    files = files[:20]
+    files = files[:]
     
     for file in files:
 
-        img = read_image(file)
+        img = read_image(file)   
+        og_image = img.copy()
 
         y, x = img.shape
 
@@ -221,7 +294,7 @@ if __name__ == '__main__':
         y, x = img.shape
         #img_cropped = img[y//4:y, 0:x]
         img_cropped = img
-        plateLocation = metode_B(img_cropped)
+        plateLocation = metode_B(img_cropped, og_image)
         file_name = file[file.rindex('\\') + 1 :]
         filePlateTag = file_name[:file_name.rindex('.')]
 
@@ -229,8 +302,12 @@ if __name__ == '__main__':
             print("File:", file_name, "- License Plate not found")          
 
         else:
-            
+            cv2.imwrite(DIR_RESULTS + file_name, plateLocation)
+            licensePlateNumber = img_to_str(plateLocation)
+            print("File:", file_name + " - License Plate Number identified: ", 
+                licensePlateNumber)
 
+            '''
             licensePlateNumber, imgTextBoxes = img_to_str(plateLocation)
 
             cv2.imwrite(DIR_RESULTS + file_name, imgTextBoxes)
@@ -241,9 +318,11 @@ if __name__ == '__main__':
 
             if licensePlateNumber == filePlateTag: 
                 total += 1
+            '''
 
     correct_percentage = round((total/len(files))*100, 2)
     print("Total Images Processed:", len(files), "- Correctly Identified:", total, 
         "(" + str(correct_percentage) + "%)")
+    
 
     
