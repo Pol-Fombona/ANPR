@@ -1,7 +1,3 @@
-from distutils.log import debug
-from msilib.schema import Directory
-from turtle import left
-from warnings import warn_explicit
 import cv2
 import matplotlib.pyplot as plt
 import numpy as np
@@ -12,6 +8,7 @@ import os
 from imutils import contours
 from os import listdir
 import easyocr
+import re
 
 
 
@@ -45,7 +42,8 @@ def get_location(image):
 
             if (DEBUG): print(f'\nRatio: {ratio} ({y}/{x})\n')
 
-            if 4.5 > ratio > 1.8:
+            #if 4.5 > ratio > 1.8:
+            if ratio > 1.8:
                 location = approx
                 break
 
@@ -62,20 +60,21 @@ def metode_B(image, og_img):
 
     history = []
 
-    img = cv2.GaussianBlur(image, (7,7), 0) 
+    img = cv2.GaussianBlur(image, (5,5), 0) 
     # Compte que aqui li apliquem el blur pero despres al black hat usem la imatge de
     # parametre i no la del gaussian
     history.append((img, "Gaussian Blur"))
 
     kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (3,3))
-    blackHat = cv2.morphologyEx(image, cv2.MORPH_BLACKHAT, kernel, iterations=2)
+    blackHat = cv2.morphologyEx(img, cv2.MORPH_BLACKHAT, kernel, iterations=3)
     history.append((blackHat, "Black Hat"))
 
     treshold = cv2.threshold(blackHat, blackHat.max()//2, 255, cv2.THRESH_BINARY)[1]
+    #treshold = cv2.threshold(blackHat, 0, 255, cv2.THRESH_BINARY+cv2.THRESH_OTSU)[1]    
     history.append((treshold, "Treshold"))
   
     horizontal_kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (7,1))
-    dilate = cv2.dilate(treshold, horizontal_kernel, iterations=5)
+    dilate = cv2.dilate(treshold, horizontal_kernel, iterations=7)
     history.append((dilate, "Dilate"))
 
     opening = cv2.morphologyEx(dilate, cv2.MORPH_OPEN, kernel, iterations=1)
@@ -136,7 +135,7 @@ def metode_B(image, og_img):
 
     
     ret2,th2 = cv2.threshold(warped, 0,255,cv2.THRESH_BINARY+cv2.THRESH_OTSU)
-    th2 = elimina_e(th2, 150)
+    th2 = elimina_e(th2, 120)
 
     findIndividualCharacters(th2, og_image)
     ## No el faig servir de moment amb l'easyocr
@@ -268,6 +267,25 @@ def elimina_e(img, thr):
 
   return img_ret
 
+def chech_text(text):
+
+    if len(text) > 7:
+        split_text = (re.split('(\d+)',text))
+
+        numbers = split_text[1]
+        text = split_text[2]
+
+        if len(numbers) > 4:
+            numbers = numbers[1:]
+
+        if len(text) > 3:
+            text = text[:3]
+
+
+        text = numbers + text
+
+    return text
+
 
 if __name__ == '__main__':
 
@@ -276,6 +294,7 @@ if __name__ == '__main__':
     directory = os.getcwd()
     
     DIR_IMAGES = directory + "\\cropped_images\\"
+    #DIR_IMAGES = directory + "\\test\\"
     DIR_CORRECT_RESULTS = directory + "\licensePlate\correct\\"
     DIR_INCORRECT_RESULTS = directory + "\licensePlate\incorrect\\"
 
@@ -285,7 +304,6 @@ if __name__ == '__main__':
     total = 0
 
     files = [DIR_IMAGES + file for file in listdir(DIR_IMAGES)]
-    #files = files[:]
     
     for file in files:
 
@@ -321,9 +339,17 @@ if __name__ == '__main__':
                 total += 1
 
             else:
-                cv2.imwrite(DIR_INCORRECT_RESULTS + file_name, plateLocation) 
-                print("File:", file_name + " - License Plate Number identified:", 
-                                        licensePlateNumber)
+                temp = licensePlateNumber
+                licensePlateNumber = chech_text(licensePlateNumber)
+
+                if licensePlateNumber == filePlateTag:
+                    cv2.imwrite(DIR_CORRECT_RESULTS + file_name, plateLocation) 
+                    total += 1
+                else:
+                    print(temp)
+                    cv2.imwrite(DIR_INCORRECT_RESULTS + file_name, plateLocation) 
+                    print("File:", file_name + " - License Plate Number identified:", 
+                                            licensePlateNumber)
 
             #licensePlateNumber = img_to_str(plateLocation)
             #print("File:", file_name + " - License Plate Number identified: ", 
