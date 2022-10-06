@@ -1,3 +1,6 @@
+import os
+os.environ["KMP_DUPLICATE_LIB_OK"]="TRUE"
+
 import cv2
 import matplotlib.pyplot as plt
 import numpy as np
@@ -13,7 +16,7 @@ import re
 
 def read_image(filename):
     # Read Image in Gray Scale
-    return cv2.imread(filename, 0)
+    return cv2.imread(filename, 0),cv2.imread(filename)
 
 def get_location(image):
     keypoints = cv2.findContours(image, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
@@ -52,7 +55,7 @@ def show_image(img, title = ''):
     cv2.destroyAllWindows()
 
 
-def metode_B(image, og_img):
+def metode_B(image, og_img,img_color):
 
     history = []
 
@@ -105,6 +108,16 @@ def metode_B(image, og_img):
         if (DEBUG): print('Location not found!')
         return 
 
+    itemp = img_color.copy()
+
+    x = location[0][0]
+    y = location[0][1]
+    w = location[2][0] - x
+    h = location[3][1] - y
+    cv2.drawContours(itemp, [location], -1, (124,252,0), 2)
+    #cv2.imshow('', itemp)
+    #cv2.waitKey(0)
+    loc = location.copy()
 
     mask = np.zeros(og_image.shape, np.uint8)
     y, x = og_image.shape
@@ -127,8 +140,7 @@ def metode_B(image, og_img):
             show_image(item[0], item[1])
 
 
-    return th2
-
+    return th2, itemp, loc
 
 
 def imgToText(img, reader):
@@ -143,7 +155,6 @@ def imgToText(img, reader):
     
     return result.replace(" ", "")
 """
-
 def imgToText(img, reader):
     result  = reader.readtext(img, detail=1, allowlist = '0123456789BCDFGHJKLMNPRSTVWXYZ')
 
@@ -188,9 +199,9 @@ def imgToText(img, reader):
 
 
     return result.replace(" ", "")
-    
+
 """
-    
+
 def orderPoints(pts):
 	rect = np.zeros((4, 2), dtype = "float32")
 
@@ -253,6 +264,11 @@ def checkText(text):
 
     return text
 
+def cleanup_text(text):
+	# strip out non-ASCII text so we can draw the text on the image
+	# using OpenCV
+	return "".join([c if ord(c) < 128 else "" for c in text]).strip()
+
 
 if __name__ == '__main__':
 
@@ -272,7 +288,7 @@ if __name__ == '__main__':
 
     for filename in files:
 
-        img = read_image(DIR_IMAGES + filename)   
+        img,img_color = read_image(DIR_IMAGES + filename)   
         og_image = img.copy()
         
         y, x = img.shape
@@ -280,8 +296,9 @@ if __name__ == '__main__':
         r = 720 / x
         dim = (720, int(y * r))
         img = cv2.resize(img, dim)
+        img_color = cv2.resize(img_color, dim)
 
-        plateLocation = metode_B(img, og_image)
+        plateLocation, img_boundingBox, location = metode_B(img, og_image,img_color)
 
 
         if "_" in filename:
@@ -296,6 +313,12 @@ if __name__ == '__main__':
             
 
             licensePlateNumber = imgToText(plateLocation, reader)
+            
+            #Dibuixem les lletres a la imatge
+            img_boundingBox = cv2.putText(img_boundingBox, cleanup_text(licensePlateNumber), (location[0][0]+50, location[0][1] - 50),
+			cv2.FONT_HERSHEY_SIMPLEX, 0.75, (255, 165, 0), 2)
+            #cv2.imshow('',img_boundingBox)
+            #cv2.waitKey(0)
 
             if licensePlateNumber == filePlateTag:
                 cv2.imwrite(DIR_CORRECT_RESULTS + filename, plateLocation) 
