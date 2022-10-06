@@ -130,7 +130,7 @@ def metode_B(image, og_img):
     return th2
 
 
-"""
+
 def imgToText(img, reader):
     result  = reader.readtext(img, detail=0, allowlist = '0123456789BCDFGHJKLMNPRSTVWXYZ')
 
@@ -188,7 +188,9 @@ def imgToText(img, reader):
 
 
     return result.replace(" ", "")
-
+    
+"""
+    
 def orderPoints(pts):
 	rect = np.zeros((4, 2), dtype = "float32")
 
