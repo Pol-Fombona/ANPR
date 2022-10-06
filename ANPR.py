@@ -130,7 +130,7 @@ def metode_B(image, og_img):
     return th2
 
 
-
+"""
 def imgToText(img, reader):
     result  = reader.readtext(img, detail=0, allowlist = '0123456789BCDFGHJKLMNPRSTVWXYZ')
 
@@ -142,7 +142,52 @@ def imgToText(img, reader):
 
     
     return result.replace(" ", "")
+"""
 
+def imgToText(img, reader):
+    result  = reader.readtext(img, detail=1, allowlist = '0123456789BCDFGHJKLMNPRSTVWXYZ')
+
+    if len(result) == 0:
+        return ''
+
+    elif type(result[0]) is tuple:
+        if len(result) == 1:
+            itemp = img.copy()
+
+            x = result[0][0][0][0]
+            y = result[0][0][0][1]
+            w = result[0][0][1][0] - x
+            h = result[0][0][2][1] - y
+            cv2.rectangle(itemp, (x, y), (x+w, y+h), (0, 0, 255), 1)
+            cv2.imshow('', itemp)
+
+            result = '' + result[0][1]
+
+        else:
+            itemp = img.copy()
+
+            x1 = result[0][0][0][0]
+            y1 = result[0][0][0][1]
+            w1 = result[0][0][1][0] - x1
+            h1 = result[0][0][2][1] - y1
+
+            x2 = result[1][0][0][0]
+            y2 = result[1][0][0][1]
+            w2 = result[1][0][1][0] - x2
+            h2 = result[1][0][2][1] - y2
+            cv2.rectangle(itemp, (x1, y1), (x1+w1, y1+h1), (0, 0, 255), 1)
+            cv2.rectangle(itemp, (x2, y2), (x2+w2, y2+h2), (0, 0, 255), 1)
+            cv2.imshow('', itemp)
+            #cv2.waitKey(0)
+            temp = result[0][1] + result[1][1]
+            result = '' + temp
+
+
+    else:
+        result = ''.join(result)
+
+
+    return result.replace(" ", "")
 
 def orderPoints(pts):
 	rect = np.zeros((4, 2), dtype = "float32")
