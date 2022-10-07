@@ -1,6 +1,6 @@
 from imutils import contours
 from os import listdir
-from CM import display_cm
+from CM import display_CM
 
 import os
 os.environ["KMP_DUPLICATE_LIB_OK"]="TRUE"
