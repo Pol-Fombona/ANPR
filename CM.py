@@ -1,4 +1,6 @@
 from sklearn.metrics import confusion_matrix
+from sklearn.metrics import ConfusionMatrixDisplay
+
 import matplotlib.pyplot as plt
 
 
@@ -6,5 +8,6 @@ import matplotlib.pyplot as plt
 def display_CM(y_pred, y_true):
 
     cm = confusion_matrix(y_true, y_pred)
-    cm.plot()
+    disp = ConfusionMatrixDisplay(cm)
+    disp.plot()
     plt.show()

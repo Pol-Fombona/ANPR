@@ -64,7 +64,6 @@ def metode_B(image, og_img,img_color):
     history.append((blackHat, "Black Hat"))
 
     treshold = cv2.threshold(blackHat, blackHat.max()//2, 255, cv2.THRESH_BINARY)[1]
-    #treshold = cv2.threshold(blackHat, 0, 255, cv2.THRESH_BINARY+cv2.THRESH_OTSU)[1]    
     history.append((treshold, "Treshold"))
   
     horizontal_kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (7,1))
@@ -218,7 +217,7 @@ if __name__ == '__main__':
 
     directory = os.getcwd()
     
-    DIR_IMAGES = directory + "\\images\\"
+    DIR_IMAGES = directory + "/images/"
     #DIR_IMAGES = directory + "\\test\\"
     DIR_CORRECT_RESULTS = directory + "\licensePlate\correct\\"
     DIR_INCORRECT_RESULTS = directory + "\licensePlate\incorrect\\"
@@ -258,11 +257,10 @@ if __name__ == '__main__':
 
         else:
             
-
             licensePlateNumber = imgToText(plateLocation, reader)
             
             if licensePlateNumber == filePlateTag:
-                cv2.imwrite(DIR_CORRECT_RESULTS + filename, plateLocation) 
+                #cv2.imwrite(DIR_CORRECT_RESULTS + filename, plateLocation) 
                 total += 1
 
             else:
@@ -270,10 +268,10 @@ if __name__ == '__main__':
                 licensePlateNumber = checkText(licensePlateNumber)
 
                 if licensePlateNumber == filePlateTag:
-                    cv2.imwrite(DIR_CORRECT_RESULTS + filename, plateLocation) 
+                    #cv2.imwrite(DIR_CORRECT_RESULTS + filename, plateLocation) 
                     total += 1
                 else:
-                    cv2.imwrite(DIR_INCORRECT_RESULTS + filename, plateLocation) 
+                    #cv2.imwrite(DIR_INCORRECT_RESULTS + filename, plateLocation) 
                     print("File:", filename + " - License Plate Number identified:", 
                                             licensePlateNumber)
                   
