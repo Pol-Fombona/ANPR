@@ -9,8 +9,6 @@ import imutils
 import re
 import os
 import easyocr
-import re
-
 
 
 def read_image(filename):
@@ -82,13 +80,10 @@ def metode_B(image, og_img,img_color):
     treshold2 = cv2.threshold(gaussianBlur, gaussianBlur.max()//2, 255, cv2.THRESH_BINARY)[1]
     history.append((treshold2, "Second Treshold"))
 
-
-
     square_kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (3,3))
     closing = cv2.morphologyEx(treshold2, cv2.MORPH_CLOSE, square_kernel, iterations=5)
     history.append((closing, "Closing"))
 
-    
 
     # Filter using contour area and remove small noise
     cnts = cv2.findContours(closing, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
@@ -113,6 +108,7 @@ def metode_B(image, og_img,img_color):
     y = location[0][1]
     w = location[2][0] - x
     h = location[3][1] - y
+
     cv2.drawContours(itemp, [location], -1, (124,252,0), 2)
 
     loc = location.copy()
@@ -130,7 +126,7 @@ def metode_B(image, og_img,img_color):
     warped = homography(new_image,location)
     history.append((warped, "Warped"))
 
-    ret2,th2 = cv2.threshold(warped, 0,255,cv2.THRESH_BINARY+cv2.THRESH_OTSU)
+    _, th2 = cv2.threshold(warped, 0,255,cv2.THRESH_BINARY+cv2.THRESH_OTSU)
     th2 = removeEUStrip(th2, 120)
 
     if (DEBUG):
@@ -148,9 +144,9 @@ def imgToText(img, reader):
     
     elif len(result) >= 1:
         result = ''.join(result)
-
     
     return result.replace(" ", "")
+
 
 def orderPoints(pts):
 	rect = np.zeros((4, 2), dtype = "float32")
@@ -164,6 +160,7 @@ def orderPoints(pts):
 	rect[3] = pts[np.argmax(diff)]
 
 	return rect
+
 
 def homography(gray_img,location):
 	src = orderPoints(np.squeeze(location).astype(np.float32))
@@ -180,9 +177,11 @@ def homography(gray_img,location):
 		[maxWidth - 1, 0],
 		[maxWidth - 1, maxHeight - 1],
 		[0, maxHeight - 1]], dtype = "float32")
+
 	M = cv2.getPerspectiveTransform(src, dst) 
 	warped = cv2.warpPerspective(gray_img, M, (maxWidth, maxHeight))
 	return warped
+
 
 def removeEUStrip(img, thr):
   mean_columns = img.mean(0)
@@ -194,6 +193,7 @@ def removeEUStrip(img, thr):
   img_ret = np.delete(img, [i for i in range(ind)], axis=1)
 
   return img_ret
+
 
 def checkText(text):
 
@@ -208,7 +208,6 @@ def checkText(text):
 
         if len(text) > 3:
             text = text[:3]
-
 
         text = numbers + text
 
@@ -231,6 +230,8 @@ if __name__ == '__main__':
     total = 0
 
     files = listdir(DIR_IMAGES)
+
+    y_pred = []; y_true = []
 
     for filename in files:
 
@@ -276,14 +277,20 @@ if __name__ == '__main__':
                     print("File:", filename + " - License Plate Number identified:", 
                                             licensePlateNumber)
                   
+            if len(licensePlateNumber) == 7:
+                y_pred.extend( licensePlateNumber[-3:] )
+                y_true.extend( filePlateTag[-3:] )
+            
             #Dibuixem les lletres a la imatge
-            img_boundingBox = cv2.putText(img_boundingBox, licensePlateNumber, (location[0][0]+50, location[0][1] - 50),
+            """img_boundingBox = cv2.putText(img_boundingBox, licensePlateNumber, (location[0][0]+50, location[0][1] - 50),
 			cv2.FONT_HERSHEY_SIMPLEX, 0.75, (0, 0, 0), 10)
             img_boundingBox = cv2.putText(img_boundingBox, licensePlateNumber, (location[0][0]+50, location[0][1] - 50),
 			cv2.FONT_HERSHEY_SIMPLEX, 0.75, (255, 255, 255), 2)
+            cv2.imwrite(DIR_IMAGES_BB + filename, img_boundingBox)"""
 
-            cv2.imwrite(DIR_IMAGES_BB + filename, img_boundingBox)
 
+    # Display the Confusion Matrix
+    display_CM(y_pred, y_true)
 
     correct_percentage = round((total/len(files))*100, 2)
     print("Total Images Processed:", len(files), "- Correctly Identified:", total, 
