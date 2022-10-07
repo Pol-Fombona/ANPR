@@ -1,9 +1,4 @@
-from imutils import contours
-from os import listdir
-from CM import display_CM
-
 import os
-os.environ["KMP_DUPLICATE_LIB_OK"]="TRUE"
 
 import cv2
 import matplotlib.pyplot as plt
@@ -11,8 +6,11 @@ import numpy as np
 import imutils
 import re
 import os
+from imutils import contours
+from os import listdir
 import easyocr
 import re
+
 
 
 def read_image(filename):
@@ -116,8 +114,7 @@ def metode_B(image, og_img,img_color):
     w = location[2][0] - x
     h = location[3][1] - y
     cv2.drawContours(itemp, [location], -1, (124,252,0), 2)
-    #cv2.imshow('', itemp)
-    #cv2.waitKey(0)
+
     loc = location.copy()
 
     mask = np.zeros(og_image.shape, np.uint8)
@@ -140,7 +137,6 @@ def metode_B(image, og_img,img_color):
         for item in history:
             show_image(item[0], item[1])
 
-
     return th2, itemp, loc
 
 
@@ -155,53 +151,6 @@ def imgToText(img, reader):
 
     
     return result.replace(" ", "")
-"""
-def imgToText(img, reader):
-    result  = reader.readtext(img, detail=1, allowlist = '0123456789BCDFGHJKLMNPRSTVWXYZ')
-
-    if len(result) == 0:
-        return ''
-
-    elif type(result[0]) is tuple:
-        if len(result) == 1:
-            itemp = img.copy()
-
-            x = result[0][0][0][0]
-            y = result[0][0][0][1]
-            w = result[0][0][1][0] - x
-            h = result[0][0][2][1] - y
-            cv2.rectangle(itemp, (x, y), (x+w, y+h), (0, 0, 255), 1)
-            cv2.imshow('', itemp)
-
-            result = '' + result[0][1]
-
-        else:
-            itemp = img.copy()
-
-            x1 = result[0][0][0][0]
-            y1 = result[0][0][0][1]
-            w1 = result[0][0][1][0] - x1
-            h1 = result[0][0][2][1] - y1
-
-            x2 = result[1][0][0][0]
-            y2 = result[1][0][0][1]
-            w2 = result[1][0][1][0] - x2
-            h2 = result[1][0][2][1] - y2
-            cv2.rectangle(itemp, (x1, y1), (x1+w1, y1+h1), (0, 0, 255), 1)
-            cv2.rectangle(itemp, (x2, y2), (x2+w2, y2+h2), (0, 0, 255), 1)
-            cv2.imshow('', itemp)
-            #cv2.waitKey(0)
-            temp = result[0][1] + result[1][1]
-            result = '' + temp
-
-
-    else:
-        result = ''.join(result)
-
-
-    return result.replace(" ", "")
-
-"""
 
 def orderPoints(pts):
 	rect = np.zeros((4, 2), dtype = "float32")
@@ -265,11 +214,6 @@ def checkText(text):
 
     return text
 
-def cleanup_text(text):
-	# strip out non-ASCII text so we can draw the text on the image
-	# using OpenCV
-	return "".join([c if ord(c) < 128 else "" for c in text]).strip()
-
 
 if __name__ == '__main__':
 
@@ -279,6 +223,7 @@ if __name__ == '__main__':
     #DIR_IMAGES = directory + "\\test\\"
     DIR_CORRECT_RESULTS = directory + "\licensePlate\correct\\"
     DIR_INCORRECT_RESULTS = directory + "\licensePlate\incorrect\\"
+    DIR_IMAGES_BB = directory + "\\images_BB\\"
 
     reader = easyocr.Reader(['en'])
 
@@ -315,12 +260,6 @@ if __name__ == '__main__':
 
             licensePlateNumber = imgToText(plateLocation, reader)
             
-            #Dibuixem les lletres a la imatge
-            img_boundingBox = cv2.putText(img_boundingBox, cleanup_text(licensePlateNumber), (location[0][0]+50, location[0][1] - 50),
-			cv2.FONT_HERSHEY_SIMPLEX, 0.75, (255, 165, 0), 2)
-            #cv2.imshow('',img_boundingBox)
-            #cv2.waitKey(0)
-
             if licensePlateNumber == filePlateTag:
                 cv2.imwrite(DIR_CORRECT_RESULTS + filename, plateLocation) 
                 total += 1
@@ -337,6 +276,14 @@ if __name__ == '__main__':
                     print("File:", filename + " - License Plate Number identified:", 
                                             licensePlateNumber)
                   
+            #Dibuixem les lletres a la imatge
+            img_boundingBox = cv2.putText(img_boundingBox, licensePlateNumber, (location[0][0]+50, location[0][1] - 50),
+			cv2.FONT_HERSHEY_SIMPLEX, 0.75, (0, 0, 0), 10)
+            img_boundingBox = cv2.putText(img_boundingBox, licensePlateNumber, (location[0][0]+50, location[0][1] - 50),
+			cv2.FONT_HERSHEY_SIMPLEX, 0.75, (255, 255, 255), 2)
+
+            cv2.imwrite(DIR_IMAGES_BB + filename, img_boundingBox)
+
 
     correct_percentage = round((total/len(files))*100, 2)
     print("Total Images Processed:", len(files), "- Correctly Identified:", total, 
