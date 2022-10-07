@@ -1,3 +1,7 @@
+from imutils import contours
+from os import listdir
+from CM import display_cm
+
 import os
 os.environ["KMP_DUPLICATE_LIB_OK"]="TRUE"
 
@@ -7,11 +11,8 @@ import numpy as np
 import imutils
 import re
 import os
-from imutils import contours
-from os import listdir
 import easyocr
 import re
-
 
 
 def read_image(filename):
