@@ -1,6 +1,6 @@
 from imutils import contours
 from os import listdir
-from CM import display_CM
+#from CM import display_CM
 
 import cv2
 import matplotlib.pyplot as plt
@@ -136,7 +136,7 @@ def metode_B(image, og_img,img_color):
 
 
 def imgToText(img, reader):
-    result  = reader.readtext(img, detail=0, allowlist = '0123456789BCDFGHJKLMNPRSTVWXYZ')
+    result  = reader.readtext(img, detail=0, allowlist = '0123456789BCDFGHJKLMNPRSTVWXYZ', paragraph=True)
 
     if len(result) == 0:
         return ''
@@ -209,7 +209,15 @@ def checkText(text):
             text = text[:3]
 
         text = numbers + text
+    number_text_similarity = (("L","4"), ("S", "5"), ("Z","2"), ("B","8"), ("G","6"))
+    numbers, text = text[:4], text[4:]
 
+    for pair in number_text_similarity:
+        numbers = numbers.replace(pair[0], pair[1])
+        text = text.replace(pair[1], pair[0])
+
+
+    text = numbers + text
     return text
 
 
@@ -217,13 +225,13 @@ if __name__ == '__main__':
 
     directory = os.getcwd()
     
-    DIR_IMAGES = directory + "/images/"
+    DIR_IMAGES = directory + "\\images\\"
     #DIR_IMAGES = directory + "\\test\\"
     DIR_CORRECT_RESULTS = directory + "\licensePlate\correct\\"
     DIR_INCORRECT_RESULTS = directory + "\licensePlate\incorrect\\"
     DIR_IMAGES_BB = directory + "\\images_BB\\"
 
-    reader = easyocr.Reader(['en'])
+    reader = easyocr.Reader(['en'], gpu = False)
 
     DEBUG = False
     total = 0
@@ -243,9 +251,11 @@ if __name__ == '__main__':
         dim = (720, int(y * r))
         img = cv2.resize(img, dim)
         img_color = cv2.resize(img_color, dim)
-
-        plateLocation, img_boundingBox, location = metode_B(img, og_image,img_color)
-
+        try:
+            plateLocation, img_boundingBox, location = metode_B(img, og_image,img_color)
+        except:
+            print("File:", filename, "- License Plate not found") 
+            continue  
 
         if "_" in filename:
             filePlateTag = filename[:filename.rindex('_')]
@@ -260,7 +270,7 @@ if __name__ == '__main__':
             licensePlateNumber = imgToText(plateLocation, reader)
             
             if licensePlateNumber == filePlateTag:
-                #cv2.imwrite(DIR_CORRECT_RESULTS + filename, plateLocation) 
+                cv2.imwrite(DIR_CORRECT_RESULTS + filename, plateLocation) 
                 total += 1
 
             else:
@@ -268,10 +278,10 @@ if __name__ == '__main__':
                 licensePlateNumber = checkText(licensePlateNumber)
 
                 if licensePlateNumber == filePlateTag:
-                    #cv2.imwrite(DIR_CORRECT_RESULTS + filename, plateLocation) 
+                    cv2.imwrite(DIR_CORRECT_RESULTS + filename, plateLocation) 
                     total += 1
                 else:
-                    #cv2.imwrite(DIR_INCORRECT_RESULTS + filename, plateLocation) 
+                    cv2.imwrite(DIR_INCORRECT_RESULTS + filename, plateLocation) 
                     print("File:", filename + " - License Plate Number identified:", 
                                             licensePlateNumber)
                   
@@ -280,15 +290,15 @@ if __name__ == '__main__':
                 y_true.extend( filePlateTag[-3:] )
             
             #Dibuixem les lletres a la imatge
-            """img_boundingBox = cv2.putText(img_boundingBox, licensePlateNumber, (location[0][0]+50, location[0][1] - 50),
+            img_boundingBox = cv2.putText(img_boundingBox, licensePlateNumber, (location[0][0]+50, location[0][1] - 50),
 			cv2.FONT_HERSHEY_SIMPLEX, 0.75, (0, 0, 0), 10)
             img_boundingBox = cv2.putText(img_boundingBox, licensePlateNumber, (location[0][0]+50, location[0][1] - 50),
 			cv2.FONT_HERSHEY_SIMPLEX, 0.75, (255, 255, 255), 2)
-            cv2.imwrite(DIR_IMAGES_BB + filename, img_boundingBox)"""
+            cv2.imwrite(DIR_IMAGES_BB + filename, img_boundingBox)
 
 
     # Display the Confusion Matrix
-    display_CM(y_pred, y_true)
+    #display_CM(y_pred, y_true)
 
     correct_percentage = round((total/len(files))*100, 2)
     print("Total Images Processed:", len(files), "- Correctly Identified:", total, 
