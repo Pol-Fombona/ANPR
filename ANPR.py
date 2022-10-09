@@ -1,4 +1,3 @@
-from pickle import FALSE, TRUE
 from imutils import contours
 from os import listdir
 
