@@ -320,23 +320,16 @@ if __name__ == '__main__':
                 filePlateTag = filename[:filename.rindex('.')]
 
             licensePlateNumber = imgToText(plateLocation, reader)
-            
+            licensePlateNumber = checkText(licensePlateNumber)
+
             if licensePlateNumber == filePlateTag:
-                # Correctly recognized characters
+                # Correctly recognized characters after post-process of the first result
                 saveResult(DIR_CORRECT_RESULTS, filename, plateLocation, licensePlateNumber, True)
                 total += 1
 
             else:
-                licensePlateNumber = checkText(licensePlateNumber)
-
-                if licensePlateNumber == filePlateTag:
-                    # Correctly recognized characters after post-process of the first result
-                    saveResult(DIR_CORRECT_RESULTS, filename, plateLocation, licensePlateNumber, True)
-                    total += 1
-
-                else:
-                    # Incorrectly recognized characters
-                    saveResult(DIR_INCORRECT_RESULTS, filename, plateLocation, licensePlateNumber, False)
+                # Incorrectly recognized characters
+                saveResult(DIR_INCORRECT_RESULTS, filename, plateLocation, licensePlateNumber, False)
             
             # Save image with the bounding box and text recognized
             img_boundingBox = drawBoundingBoxResult(img_boundingBox, location, licensePlateNumber)
