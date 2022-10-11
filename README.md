@@ -2,24 +2,19 @@
 Automatic number-plate recognition
 
 
-10-15 imatges / persona
+Passos per executar:
+  - Carpeta "images" en el directori des d'on s'executa el programa amb les imatges que es vol reconèixer. El nom dels arxius ha de contenir la matrícula si es vol poder avaluar els resultats en format sense espais (ex: 7020DMR.jpg)
+  - Els resultats es guardaràn en les següents carpetes en el mateix directori d'execució
+    - "licensePlate/incorrect": localitzacions (correcte o incorrecte) de matrícules amb reconeixement erroni
+    - "licensePlate/incorrect": localitzacions de matrícules amb reconeixement correcte
+    - "licensePlate/boundingBox": imatges originals amb la bounding box de la matrícula detectada i el reconeixement de caràcters
+    
+Paràmetres:
+  - "--debug" : si està especificat, mostra per pantalla les imatges resultants d'aplicar les transformacions durant la localització
 
 
-Steps:
-  - Capture/Read image
-  - Resize (N x M)
-  - B&W or Binarize image
-  - Detect Number Plate
-  - OCR
-
-Opcional:
-  - Frontend
-  - Detectar que hi ha la banda blava i la "E" que indica espanya
-  - Tenir en compte matricula de motos
-  - Base de dades per saber quan entra i marxa el cotxe per cobrar
-
-
-
-Bibliography:
-- A Classical Approach on Number Plate Recognition using OCR & ICA Technique, Sept 2018: [LINK](https://www.researchgate.net/publication/333719464_A_Classical_Approach_on_Number_Plate_Recognition_using_OCR_ICA_Technique)
-- OpenCV: Automatic License/Number Plate Recognition (ANPR) with Python: [LINK](https://pyimagesearch.com/2020/09/21/opencv-automatic-license-number-plate-recognition-anpr-with-python/)
+Projecte realitzar per:
+  - Pol Fombona Delgado
+  - Victor Garcia Pina
+  - Ángel Funes Olaria
+  - Joel Soler Huix
